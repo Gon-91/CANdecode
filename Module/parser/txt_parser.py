@@ -50,11 +50,17 @@ class TXTParser(BaseCANParser):
         # 3. 필드 매핑
         values = {field: tokens[i] if i < len(tokens) else None for i, field in enumerate(self.field_order)}
 
+        # 4. data를 DLC 기준으로 바이트 배열로 변환
+        dlc = int(values.get("dlc")) if values.get("dlc") else 0
+        data_str = values.get("data") or ""
+        data_list = [data_str[i:i+2] for i in range(0, len(data_str), 2)][:dlc]
+
+
         return CANMessage(
-            timestamp=values.get("timestamp"),
+            timestamp=float(values.get("timestamp")),
             can_id=values.get("can_id"),
-            dlc=values.get("dlc"),
-            data=values.get("data"),
+            dlc=dlc,
+            data=data_list,
             channel=values.get("channel"),
-            type_=values.get("type")
+            type=values.get("type")
         )

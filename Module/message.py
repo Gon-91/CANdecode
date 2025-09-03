@@ -1,10 +1,12 @@
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
 class CANMessage:
-    def __init__(self, type_="RX_MSG",timestamp=None, can_id=None, dlc=None, data=None, channel=None, is_fd=False ):
-        self.type = type_
-        self.is_fd = is_fd
-        self.timestamp = timestamp
-        self.can_id = can_id
-        self.dlc = dlc
-        self.data = data
-        self.channel = channel
+    timestamp: Optional[float] = None
+    can_id: Optional[str] = None
+    dlc: Optional[int] = None
+    data: Optional[str] = None
+    channel: Optional[str] = None
+    type: Optional[str] = None
 
