@@ -32,8 +32,7 @@ class FileListWidget(QWidget):
             if file_path not in self.df_dict:
                 self.list_widget.addItem(file_path)
                 parser = get_parser( file_path)
-                messages = parser.parse()
-                df = messages_to_dataframe(messages)
+                df = parser.parse_df()
                 self.df_dict[file_path] = df
 
     def on_file_selected(self):
