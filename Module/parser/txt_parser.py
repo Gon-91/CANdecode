@@ -75,7 +75,7 @@ class TXTParser(BaseCANParser):
 
         # 3. 타입 변환 + DLC 기반 데이터 분리
         try:
-            timestamp = float(values.get("timestamp") or 0.0)
+            timestamp = float(values.get("timestamp") or 0.0) / 1000000
         except ValueError:
             timestamp = 0.0
 
