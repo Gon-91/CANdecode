@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QTableView, QPushButton, QDialog, QCheckBox
 )
-from PyQt5.QtCore import QAbstractTableModel, Qt
+from PyQt5.QtCore import QAbstractTableModel, Qt,pyqtSignal
 import pandas as pd
 from .dlc_graph_dialog import DlcGraphDialog
 
@@ -48,6 +48,8 @@ class PandasModel(QAbstractTableModel):
 
 
 class TableViewWidget(QWidget):
+    can_id_selected = pyqtSignal(str)  # 단일 CAN ID 선택 시 emit
+
     """DataFrame 뷰어 + CAN ID 필터링 + DLC 그래프 버튼"""
     def __init__(self):
         super().__init__()
@@ -96,6 +98,12 @@ class TableViewWidget(QWidget):
             else:
                 self.filtered_df = self._df.copy()
             self.model.update_dataframe(self.filtered_df)
+            # ✅ 만약 1개의 CAN ID만 선택됐다면 그래프 업데이트
+            if len(selected_ids) == 1:
+                can_id = str(list(selected_ids)[0])
+                # MainWindow 쪽으로 시그널 보내거나 직접 dlc_graph_widget 업데이트
+                self.can_id_selected.emit(can_id)
+
 
     def open_dlc_graph_dialog(self):
         """DLC 그래프 다이얼로그 열기 (비모달)"""
