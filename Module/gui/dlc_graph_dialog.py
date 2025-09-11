@@ -5,7 +5,10 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvasQTAgg as FigureCanvas,
+    NavigationToolbar2QT as NavigationToolbar
+)
 
 class DlcGraphDialog(QDialog):
     """CAN ID DLC 시각화 (바이트 조합 전용, 엔디안 선택 + factor/offset 적용)"""
@@ -82,8 +85,11 @@ class DlcGraphDialog(QDialog):
 
         # 그래프 영역
         self.canvas = FigureCanvas(plt.Figure(figsize=(8, 4)))
-        layout.addWidget(self.canvas)
         self.ax = self.canvas.figure.add_subplot(111)
+        self.toolbar = NavigationToolbar(self.canvas, self)
+
+        layout.addWidget(self.toolbar)   # 🔍 줌/팬/홈 버튼
+        layout.addWidget(self.canvas)
 
     def on_cell_clicked(self, row, column):
         """표 클릭 시 선택/해제 (선택 순서대로 조합)"""
