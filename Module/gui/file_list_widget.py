@@ -27,7 +27,7 @@ class FileListWidget(QWidget):
         layout.addWidget(self.btn_add_file)
 
     def add_file(self):
-        files, _ = QFileDialog.getOpenFileNames(self, "CAN 로그 파일 선택", "", "Text Files (*.txt)")
+        files, _ = QFileDialog.getOpenFileNames(self, "CAN 로그 파일 선택", "", "Files (*.txt *.blf)")
         for file_path in files:
             if file_path not in self.df_dict:
                 self.list_widget.addItem(file_path)

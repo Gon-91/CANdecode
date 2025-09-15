@@ -1,5 +1,6 @@
 from ..parser.txt_parser import TXTParser
 from ..parser.csv_parser import CSVParser  # 추후 추가
+from ..parser.blf_parser import BLFParser
 from pathlib import Path
 def get_parser(file_path, **kwargs):
 
@@ -10,5 +11,7 @@ def get_parser(file_path, **kwargs):
         return TXTParser(file_path, **kwargs)
     elif ext == ".csv":
         return CSVParser(file_path, **kwargs)
+    elif ext == ".blf":
+        return BLFParser(file_path, **kwargs)
     else:
         raise ValueError(f"Unsupported file type: {ext}")
