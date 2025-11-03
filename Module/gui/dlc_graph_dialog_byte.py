@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
+    QDialog, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem, 
     QHeaderView, QHBoxLayout, QLineEdit, QPushButton, QComboBox
 )
 from PyQt5.QtCore import Qt
@@ -10,25 +10,28 @@ from matplotlib.backends.backend_qt5agg import (
     NavigationToolbar2QT as NavigationToolbar
 )
 
-
 class DlcGraphDialog(QDialog):
-    """CAN DLC 시각화 (비트 단위 선택 지원, 엔디안 + factor/offset 적용)"""
+    """CAN ID DLC 시각화 (바이트 조합 전용, 엔디안 선택 + factor/offset 적용)"""
     def __init__(self, df: pd.DataFrame, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("CAN DLC 시각화 (비트 단위)")
-        self.resize(950, 750)
+        self.setWindowTitle("CAN DLC 시각화")
 
+        # DataFrame 복사
         self.df = df.copy().reset_index(drop=True)
+
+        # 메시지 정보
         self.can_id = self.df["can_id"].iloc[0] if "can_id" in self.df.columns else "N/A"
-        self.dlc = int(self.df["dlc"].iloc[0]) if "dlc" in self.df.columns else 8
+        self.dlc = self.df["dlc"].iloc[0] if "dlc" in self.df.columns else len(self.df.columns)
 
-        # 바이트 컬럼 (0~7)
-        self.data_cols = [str(i) for i in range(self.dlc)]
-        self.selected_bits = []  # ex: [(byte_idx, bit_idx), ...]
+        # 숫자 컬럼만 추출 (0,1,2,... 바이트)
+        self.data_cols = [c for c in df.columns if str(c).isdigit()]
 
-        # 기본값
+        # 기본 factor/offset
         self.factor = 1.0
         self.offset = 0.0
+
+        # 선택 바이트 순서
+        self.selected_bytes = []
 
         self.init_ui()
         self.plot_graphs()
@@ -36,11 +39,11 @@ class DlcGraphDialog(QDialog):
     def init_ui(self):
         layout = QVBoxLayout(self)
 
-        # 정보 표시
+        # CAN ID / DLC 표시
         self.info_label = QLabel(f"CAN ID: {self.can_id} | DLC: {self.dlc}")
         layout.addWidget(self.info_label)
 
-        # factor / offset 입력
+        # factor / offset 입력란
         fo_layout = QHBoxLayout()
         self.factor_input = QLineEdit("1")
         self.offset_input = QLineEdit("0")
@@ -62,49 +65,50 @@ class DlcGraphDialog(QDialog):
         endian_layout.addWidget(self.endian_combo)
         layout.addLayout(endian_layout)
 
-        # 비트 선택 테이블 (8 bytes x 8 bits)
-        self.bit_table = QTableWidget(8, 8)
-        self.bit_table.setHorizontalHeaderLabels([f"b{7 - i}" for i in range(8)])  # b7 ~ b0
-        self.bit_table.setVerticalHeaderLabels([f"B{i}" for i in range(8)])  # B0~B7
-        self.bit_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.bit_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.bit_table.cellClicked.connect(self.on_bit_clicked)
+        # 바이트 선택 표
+        self.selection_table = QTableWidget(1, len(self.data_cols))
+        self.selection_table.setHorizontalHeaderLabels([f"B{i}" for i in range(len(self.data_cols))])
+        self.selection_table.verticalHeader().setVisible(False)
+        self.selection_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.selection_table.cellClicked.connect(self.on_cell_clicked)
+        layout.addWidget(self.selection_table)
 
-        for r in range(8):
-            for c in range(8):
-                item = QTableWidgetItem("")
-                item.setTextAlignment(Qt.AlignCenter)
-                if r >= self.dlc:
-                    item.setFlags(Qt.NoItemFlags)
-                    item.setBackground(Qt.lightGray)
-                self.bit_table.setItem(r, c, item)
-        layout.addWidget(self.bit_table)
+        # 테이블 초기화
+        for j, col in enumerate(self.data_cols):
+            item = QTableWidgetItem("")
+            item.setTextAlignment(Qt.AlignCenter)
+            # DLC보다 긴 컬럼은 회색 처리 및 클릭 불가
+            if j >= self.dlc:
+                item.setFlags(Qt.NoItemFlags)
+                item.setBackground(Qt.lightGray)
+            self.selection_table.setItem(0, j, item)
 
         # 그래프 영역
         self.canvas = FigureCanvas(plt.Figure(figsize=(8, 4)))
         self.ax = self.canvas.figure.add_subplot(111)
         self.toolbar = NavigationToolbar(self.canvas, self)
-        layout.addWidget(self.toolbar)
+
+        layout.addWidget(self.toolbar)   # 🔍 줌/팬/홈 버튼
         layout.addWidget(self.canvas)
 
-    def on_bit_clicked(self, row, col):
-        """비트 클릭 (선택/해제)"""
-        item = self.bit_table.item(row, col)
+    def on_cell_clicked(self, row, column):
+        """표 클릭 시 선택/해제 (선택 순서대로 조합)"""
+        item = self.selection_table.item(row, column)
         if not item.flags() & Qt.ItemIsEnabled:
-            return
-        bit = (row, 7 - col)  # b7~b0 순서 유지
-        if bit in self.selected_bits:
-            self.selected_bits.remove(bit)
+            return  # 클릭 불가
+        col_name = self.data_cols[column]
+        if col_name in self.selected_bytes:
+            self.selected_bytes.remove(col_name)
             item.setText("")
             item.setBackground(Qt.white)
         else:
-            self.selected_bits.append(bit)
+            self.selected_bytes.append(col_name)
             item.setText("✔")
             item.setBackground(Qt.gray)
         self.plot_graphs()
 
     def apply_factor_offset(self):
-        """factor/offset 재적용"""
+        """factor / offset 적용"""
         try:
             self.factor = float(self.factor_input.text())
         except Exception:
@@ -115,36 +119,28 @@ class DlcGraphDialog(QDialog):
             self.offset = 0.0
         self.plot_graphs()
 
-    def compute_bits_value(self, row, bits, endian="Big Endian"):
-        """선택된 비트들을 모아서 정수로 변환"""
-        all_bits = []
-        for b in self.data_cols:
+    def compute_decimal(self, row, byte_cols, endian="Big Endian"):
+        """선택된 바이트 → 정수 조합 (엔디안 적용)"""
+        bytes_list = []
+        for c in byte_cols:
             try:
-                val = row.get(b, 0)
-                v = int(val, 16) if isinstance(val, str) else int(val)
+                b = row.get(c, 0)
+                b_int = int(b, 16) if isinstance(b, str) else int(b)
             except Exception:
-                v = 0
-            # 8비트 → [b7, b6, ..., b0]
-            bits_list = [(v >> i) & 1 for i in range(7, -1, -1)]
-            all_bits.append(bits_list)
-
-        # 선택된 비트만 추출 (순서 중요)
-        selected = []
-        for (byte_idx, bit_idx) in bits:
-            selected.append(all_bits[byte_idx][bit_idx])
+                b_int = 0
+            bytes_list.append(b_int)
 
         if endian == "Little Endian":
-            selected = list(reversed(selected))
+            bytes_list = list(reversed(bytes_list))  # 순서 뒤집기
 
         value = 0
-        for b in selected:
-            value = (value << 1) | b
+        for b in bytes_list:
+            value = (value << 8) | b
         return value
 
     def plot_graphs(self):
-        """그래프 갱신"""
         self.ax.clear()
-        if not self.selected_bits:
+        if not self.selected_bytes:
             self.canvas.draw()
             return
 
@@ -152,13 +148,14 @@ class DlcGraphDialog(QDialog):
         endian = self.endian_combo.currentText()
 
         try:
-            y = self.df.apply(lambda row: self.compute_bits_value(row, self.selected_bits, endian), axis=1)
+            y = self.df.apply(lambda row: self.compute_decimal(row, self.selected_bytes, endian), axis=1)
             y = y * self.factor + self.offset
-            self.ax.plot(ts, y, color="blue", linewidth=2)
+            self.ax.plot(ts, y, label="조합", color="blue", linewidth=2)
         except Exception as e:
             print(f"[WARN] Plot error: {e}")
 
         self.ax.set_xlabel("Timestamp")
-        self.ax.set_ylabel("값 (bit 조합)")
+        self.ax.set_ylabel("값 (10진수)")
+        self.ax.legend()
         self.ax.grid(True)
         self.canvas.draw()

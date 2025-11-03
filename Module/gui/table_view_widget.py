@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QTableView, QPushButton, QDialog, QCheckBox
+    QWidget, QVBoxLayout, QLabel, QTableView, QPushButton, QDialog, QCheckBox,QScrollArea
 )
 from PyQt5.QtCore import QAbstractTableModel, Qt,pyqtSignal
 import pandas as pd
@@ -129,21 +129,37 @@ class CanIdFilterDialog(QDialog):
     def __init__(self, can_ids, parent=None):
         super().__init__(parent)
         self.resize(350, 750)
-
         self.setWindowTitle("CAN ID 필터")
         self.selected_ids = set()
-        layout = QVBoxLayout()
         self.checkboxes = []
 
+        # --- 메인 레이아웃 ---
+        main_layout = QVBoxLayout(self)
+
+        # --- 스크롤 가능한 위젯 생성 ---
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout(scroll_widget)
+
+        # 체크박스 생성
         for cid in sorted(set(can_ids)):
             cb = QCheckBox(str(cid))
-            layout.addWidget(cb)
+            scroll_layout.addWidget(cb)
             self.checkboxes.append(cb)
 
+        scroll_widget.setLayout(scroll_layout)
+        scroll_area.setWidget(scroll_widget)
+
+        # --- 적용 버튼 ---
         btn_apply = QPushButton("적용")
         btn_apply.clicked.connect(self.apply_filter)
-        layout.addWidget(btn_apply)
-        self.setLayout(layout)
+
+        # --- 메인 레이아웃 구성 ---
+        main_layout.addWidget(scroll_area)
+        main_layout.addWidget(btn_apply)
+
 
     def apply_filter(self):
         self.selected_ids = {cb.text() for cb in self.checkboxes if cb.isChecked()}

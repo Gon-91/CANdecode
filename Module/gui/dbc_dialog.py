@@ -133,8 +133,8 @@ class DBCManagerDialog(QDialog):
         # DBCManager decode_dataframe 호출 전 data 열 생성
         if "data" not in df_for_decoding.columns:
             def row_to_bytes(row):
-                dlc = int(row.get("dlc", 8))  # dlc 값 가져오기
-                return bytes([int(row.get(str(i), 0)) for i in range(dlc)])  # 문자열 → 정수 변환
+                dlc = int(row.get("dlc", 8))
+                return bytes([int(row.get(str(i), "0"), 16) for i in range(dlc)])  # HEX 문자열 → 정수
             df_for_decoding["data"] = df_for_decoding.apply(row_to_bytes, axis=1)
 
         try:
